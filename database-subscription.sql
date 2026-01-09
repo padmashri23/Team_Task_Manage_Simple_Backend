@@ -1,31 +1,15 @@
--- =====================================================
--- SUBSCRIPTION SYSTEM SCHEMA UPDATES
--- =====================================================
--- Run this AFTER running the main database-working.sql
--- This adds subscription support to teams
--- =====================================================
 
--- =====================================================
--- STEP 1: ADD SUBSCRIPTION COLUMNS TO TEAMS
--- =====================================================
-
--- Add subscription type (free or paid)
 ALTER TABLE public.teams 
 ADD COLUMN IF NOT EXISTS subscription_type TEXT DEFAULT 'free' 
 CHECK (subscription_type IN ('free', 'paid'));
 
--- Add subscription price (in dollars, e.g., 9.99)
+
 ALTER TABLE public.teams 
 ADD COLUMN IF NOT EXISTS subscription_price DECIMAL(10,2) DEFAULT 0;
 
--- Add Stripe price ID (optional, for recurring subscriptions in future)
 ALTER TABLE public.teams 
 ADD COLUMN IF NOT EXISTS stripe_price_id TEXT;
 
--- =====================================================
--- STEP 2: CREATE TEAM SUBSCRIPTIONS TABLE
--- =====================================================
--- Tracks who has paid for team access
 
 CREATE TABLE IF NOT EXISTS public.team_subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -46,13 +30,9 @@ CREATE INDEX IF NOT EXISTS idx_team_subscriptions_team ON public.team_subscripti
 CREATE INDEX IF NOT EXISTS idx_team_subscriptions_user ON public.team_subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_team_subscriptions_session ON public.team_subscriptions(stripe_session_id);
 
--- =====================================================
--- STEP 3: ENABLE RLS ON NEW TABLE
--- =====================================================
 
 ALTER TABLE public.team_subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Users can view their own subscriptions
 CREATE POLICY "team_subscriptions_select" ON public.team_subscriptions FOR SELECT TO authenticated
     USING (user_id = auth.uid());
 
@@ -60,13 +40,6 @@ CREATE POLICY "team_subscriptions_select" ON public.team_subscriptions FOR SELEC
 CREATE POLICY "team_subscriptions_insert" ON public.team_subscriptions FOR INSERT TO authenticated
     WITH CHECK (user_id = auth.uid());
 
--- Only allow updates via service role (webhooks)
--- No direct user updates allowed
-
--- =====================================================
--- STEP 4: HELPER FUNCTION - GET TEAM INFO FOR JOINING
--- =====================================================
--- Returns team info including subscription details (for non-members)
 
 CREATE OR REPLACE FUNCTION public.get_team_info(p_team_id TEXT)
 RETURNS TABLE (
@@ -94,9 +67,7 @@ BEGIN
 END;
 $$;
 
--- =====================================================
--- STEP 5: HELPER FUNCTION - CHECK SUBSCRIPTION STATUS
--- =====================================================
+
 
 CREATE OR REPLACE FUNCTION public.has_active_subscription(p_team_id TEXT, p_user_id UUID)
 RETURNS BOOLEAN
@@ -113,10 +84,6 @@ AS $$
     );
 $$;
 
--- =====================================================
--- STEP 6: UPDATE JOIN TEAM FUNCTION (FOR FREE TEAMS)
--- =====================================================
--- Modified to check subscription type before allowing join
 
 CREATE OR REPLACE FUNCTION public.join_existing_team(p_team_id TEXT)
 RETURNS BOOLEAN
@@ -160,10 +127,7 @@ BEGIN
 END;
 $$;
 
--- =====================================================
--- STEP 7: ADD USER TO TEAM AFTER PAYMENT (FOR WEBHOOKS)
--- =====================================================
--- This function is called by the Stripe webhook after successful payment
+
 
 CREATE OR REPLACE FUNCTION public.complete_team_subscription(
     p_stripe_session_id TEXT,
@@ -203,15 +167,11 @@ BEGIN
 END;
 $$;
 
--- =====================================================
--- STEP 8: GRANT PERMISSIONS
--- =====================================================
+
 
 GRANT SELECT, INSERT ON public.team_subscriptions TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_team_info(TEXT) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.has_active_subscription(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.complete_team_subscription(TEXT, TEXT) TO service_role;
 
--- =====================================================
--- DONE! Run this in your Supabase SQL Editor
--- =====================================================
+
