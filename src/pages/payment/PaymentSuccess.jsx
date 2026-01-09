@@ -20,7 +20,7 @@ const PaymentSuccess = () => {
 
     useEffect(() => {
         const processPayment = async () => {
-            // Get pending join info from localStorage
+           
             const pendingJoinStr = localStorage.getItem('pendingTeamJoin')
             let pendingJoin = null
 
@@ -33,7 +33,7 @@ const PaymentSuccess = () => {
                 }
             }
 
-            // Use URL team_id or localStorage team_id
+           
             const teamId = urlTeamId || pendingJoin?.teamId
             const userId = user?.id || pendingJoin?.userId
             const price = pendingJoin?.price || 0
@@ -47,7 +47,7 @@ const PaymentSuccess = () => {
             try {
                 console.log('Processing payment for team:', teamId, 'user:', userId)
 
-                // Step 1: Create subscription record
+              
                 const { error: subError } = await supabase
                     .from('team_subscriptions')
                     .upsert({
@@ -63,7 +63,7 @@ const PaymentSuccess = () => {
 
                 if (subError) {
                     console.error('Subscription error:', subError)
-                    // Continue anyway - try to join team
+                  
                 }
 
                 // Step 2: Add user to team
@@ -80,21 +80,19 @@ const PaymentSuccess = () => {
                         console.log('Already a team member - that is OK')
                     } else {
                         console.error('Join error:', joinError)
-                        // Log the error but show success since payment went through
+                       
                     }
                 }
 
-                // Clear pending join from localStorage
                 localStorage.removeItem('pendingTeamJoin')
 
-                // Success!
+       
                 setStatus('success')
                 setMessage(`You have successfully joined ${teamName || 'the team'}!`)
 
-                // Refresh teams list
                 dispatch(fetchTeams())
 
-                // Start countdown for redirect
+      
                 let count = 5
                 const timer = setInterval(() => {
                     count--
