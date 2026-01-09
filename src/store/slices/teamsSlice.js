@@ -46,7 +46,7 @@ export const fetchTeams = createAsyncThunk(
 // Create a new team
 export const createTeam = createAsyncThunk(
   'teams/createTeam',
-  async ({ name }, { rejectWithValue }) => {
+  async ({ name, subscriptionType = 'free', subscriptionPrice = 0 }, { rejectWithValue }) => {
     try {
       // Using the new INVOKER-only function
       const { data: teamId, error } = await supabase.rpc('create_team_and_join', {
@@ -54,6 +54,19 @@ export const createTeam = createAsyncThunk(
       })
 
       if (error) throw error
+
+      // Update team with subscription info if it's a paid team
+      if (subscriptionType === 'paid' && subscriptionPrice > 0) {
+        const { error: updateError } = await supabase
+          .from('teams')
+          .update({
+            subscription_type: subscriptionType,
+            subscription_price: subscriptionPrice,
+          })
+          .eq('id', teamId)
+
+        if (updateError) throw updateError
+      }
 
       // Fetch the created team with members using RPC
       const { data: members, error: membersError } = await supabase.rpc(
@@ -213,11 +226,87 @@ export const fetchUsersNotInTeam = createAsyncThunk(
   }
 )
 
+// Get team info for joining (includes subscription details)
+export const getTeamInfo = createAsyncThunk(
+  'teams/getTeamInfo',
+  async ({ teamId }, { rejectWithValue }) => {
+    try {
+      const { data, error } = await supabase.rpc('get_team_info', {
+        p_team_id: teamId,
+      })
+
+      if (error) throw error
+      if (!data || data.length === 0) {
+        throw new Error('Team not found')
+      }
+      return data[0]
+    } catch (error) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
+// Create Stripe checkout session for paid team
+export const createCheckoutSession = createAsyncThunk(
+  'teams/createCheckoutSession',
+  async ({ teamId, teamName, price, userEmail }, { rejectWithValue }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      // Store pending join info in localStorage for PaymentSuccess page
+      // This ensures we can complete the join even if Edge Function fails
+      localStorage.setItem('pendingTeamJoin', JSON.stringify({
+        teamId,
+        teamName,
+        price,
+        userId: user.id,
+        userEmail: userEmail || user.email,
+        timestamp: Date.now(),
+      }))
+
+      // Call Supabase Edge Function to create checkout session
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: {
+          teamId,
+          teamName,
+          price,
+          userId: user.id,
+          userEmail: userEmail || user.email,
+        },
+      })
+
+      if (error) throw error
+      return data
+    } catch (error) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
+// Fetch all teams for discover page
+export const fetchAllTeams = createAsyncThunk(
+  'teams/fetchAllTeams',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data, error } = await supabase.rpc('get_all_teams')
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
 const initialState = {
   teams: [],
+  allTeams: [], // All teams for discover page
   selectedTeam: null,
   availableUsers: [],
+  teamInfo: null,
   loading: false,
+  checkoutLoading: false,
+  discoverLoading: false,
   error: null,
 }
 
@@ -234,6 +323,10 @@ const teamsSlice = createSlice({
     clearTeams: (state) => {
       state.teams = []
       state.selectedTeam = null
+    },
+    clearTeamInfo: (state) => {
+      state.teamInfo = null
+      state.error = null
     },
   },
   extraReducers: (builder) => {
@@ -334,8 +427,47 @@ const teamsSlice = createSlice({
         state.loading = false
         state.error = action.payload
       })
+      // Get Team Info (for joining)
+      .addCase(getTeamInfo.pending, (state) => {
+        state.loading = true
+        state.error = null
+        state.teamInfo = null
+      })
+      .addCase(getTeamInfo.fulfilled, (state, action) => {
+        state.loading = false
+        state.teamInfo = action.payload
+      })
+      .addCase(getTeamInfo.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+      // Create Checkout Session
+      .addCase(createCheckoutSession.pending, (state) => {
+        state.checkoutLoading = true
+        state.error = null
+      })
+      .addCase(createCheckoutSession.fulfilled, (state) => {
+        state.checkoutLoading = false
+      })
+      .addCase(createCheckoutSession.rejected, (state, action) => {
+        state.checkoutLoading = false
+        state.error = action.payload
+      })
+      // Fetch All Teams (for discover page)
+      .addCase(fetchAllTeams.pending, (state) => {
+        state.discoverLoading = true
+        state.error = null
+      })
+      .addCase(fetchAllTeams.fulfilled, (state, action) => {
+        state.discoverLoading = false
+        state.allTeams = action.payload
+      })
+      .addCase(fetchAllTeams.rejected, (state, action) => {
+        state.discoverLoading = false
+        state.error = action.payload
+      })
   },
 })
 
-export const { setSelectedTeam, clearTeamsError, clearTeams } = teamsSlice.actions
+export const { setSelectedTeam, clearTeamsError, clearTeams, clearTeamInfo } = teamsSlice.actions
 export default teamsSlice.reducer

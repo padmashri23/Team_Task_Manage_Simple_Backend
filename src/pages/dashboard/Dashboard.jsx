@@ -38,13 +38,21 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900">Task Manager</h1>
           <p className="text-gray-600">Welcome, {profile?.name || 'User'}</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-white/50 rounded-lg transition"
-        >
-          <BiLogOut size={20} />
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/discover')}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition font-medium"
+          >
+            🔍 Discover Teams
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-white/50 rounded-lg transition"
+          >
+            <BiLogOut size={20} />
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -61,21 +69,19 @@ const Dashboard = () => {
                 <div className="flex border-b border-gray-100">
                   <button
                     onClick={() => setActiveTab('tasks')}
-                    className={`flex-1 py-4 text-center font-medium transition ${
-                      activeTab === 'tasks'
+                    className={`flex-1 py-4 text-center font-medium transition ${activeTab === 'tasks'
                         ? 'text-gray-900 border-b-2 border-gray-900'
                         : 'text-gray-500 hover:text-gray-700'
-                    }`}
+                      }`}
                   >
                     Tasks
                   </button>
                   <button
                     onClick={() => setActiveTab('members')}
-                    className={`flex-1 py-4 text-center font-medium transition ${
-                      activeTab === 'members'
+                    className={`flex-1 py-4 text-center font-medium transition ${activeTab === 'members'
                         ? 'text-gray-900 border-b-2 border-gray-900'
                         : 'text-gray-500 hover:text-gray-700'
-                    }`}
+                      }`}
                   >
                     Members
                   </button>

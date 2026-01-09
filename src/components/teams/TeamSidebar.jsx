@@ -59,7 +59,13 @@ const TeamSidebar = () => {
                 )}
               >
                 <HiUserGroup size={18} />
-                <span className="font-medium truncate">{team.name}</span>
+                <span className="font-medium truncate flex-1">{team.name}</span>
+                {/* Subscription Badge */}
+                {team.subscription_type === 'paid' ? (
+                  <span className="text-xs" title="Paid Team">💎</span>
+                ) : (
+                  <span className="text-xs opacity-50" title="Free Team">🆓</span>
+                )}
               </button>
             ))
           )}

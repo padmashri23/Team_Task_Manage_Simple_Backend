@@ -9,6 +9,9 @@ import { setSession } from './store/slices/authSlice'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import Dashboard from './pages/dashboard/Dashboard'
+import PaymentSuccess from './pages/payment/PaymentSuccess'
+import PaymentCancel from './pages/payment/PaymentCancel'
+import DiscoverTeams from './pages/discover/DiscoverTeams'
 
 // Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -66,6 +69,34 @@ function App() {
         }
       />
 
+      {/* Payment Routes (Protected) */}
+      <Route
+        path="/payment/success"
+        element={
+          <ProtectedRoute>
+            <PaymentSuccess />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/payment/cancel"
+        element={
+          <ProtectedRoute>
+            <PaymentCancel />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Discover Teams */}
+      <Route
+        path="/discover"
+        element={
+          <ProtectedRoute>
+            <DiscoverTeams />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Default redirect */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
@@ -73,3 +104,4 @@ function App() {
 }
 
 export default App
+
