@@ -1,9 +1,4 @@
--- =====================================================
--- Get All Public Teams for Discovery Page
--- Run this in Supabase SQL Editor
--- =====================================================
 
--- Function to get all teams for the discover page
 CREATE OR REPLACE FUNCTION public.get_all_teams()
 RETURNS TABLE (
     id TEXT,
@@ -44,9 +39,7 @@ BEGIN
 END;
 $$;
 
--- Grant execute to authenticated users
+
 GRANT EXECUTE ON FUNCTION public.get_all_teams() TO authenticated;
 
--- =====================================================
--- DONE! Run this in Supabase SQL Editor
--- =====================================================
+

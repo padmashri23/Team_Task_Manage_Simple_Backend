@@ -1,8 +1,4 @@
--- =====================================================
--- FIX: Create join_existing_team function
--- This function is needed for the Discover Teams page
--- Run this in Supabase SQL Editor
--- =====================================================
+
 
 -- Drop if exists
 DROP FUNCTION IF EXISTS public.join_existing_team(text);
@@ -41,9 +37,5 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission
 GRANT EXECUTE ON FUNCTION public.join_existing_team(text) TO authenticated;
 
--- =====================================================
--- DONE! Run this in Supabase SQL Editor
--- =====================================================

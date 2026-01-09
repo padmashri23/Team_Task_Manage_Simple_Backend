@@ -1,9 +1,4 @@
--- =====================================================
--- FIX: Allow users with active subscriptions to join teams
--- Run this in Supabase SQL Editor
--- =====================================================
 
--- First, update get_my_teams to include subscription fields
 CREATE OR REPLACE FUNCTION public.get_my_teams()
 RETURNS TABLE (
     id TEXT,
@@ -37,19 +32,12 @@ $$;
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION public.get_my_teams() TO authenticated;
 
--- =====================================================
--- Allow users with active subscription to insert themselves into team_members
--- =====================================================
-
--- Drop existing insert policy if exists
 DROP POLICY IF EXISTS "team_members_insert" ON public.team_members;
 DROP POLICY IF EXISTS "team_members_insert_policy" ON public.team_members;
 DROP POLICY IF EXISTS "Users can join teams" ON public.team_members;
 DROP POLICY IF EXISTS "team_members_insert_with_subscription" ON public.team_members;
 
--- Create new policy that allows:
--- 1. Team admins to add anyone
--- 2. Users with active subscription to add themselves
+
 CREATE POLICY "team_members_insert_with_subscription" 
 ON public.team_members 
 FOR INSERT 
@@ -76,12 +64,9 @@ WITH CHECK (
     )
 );
 
--- =====================================================
--- Allow users to update their own subscription status
--- (needed for the PaymentSuccess page)
--- =====================================================
 
--- Drop existing policies
+
+
 DROP POLICY IF EXISTS "team_subscriptions_update" ON public.team_subscriptions;
 
 -- Allow users to update their own subscription to 'active'
@@ -95,6 +80,4 @@ WITH CHECK (user_id = auth.uid());
 -- Grant update permission
 GRANT UPDATE ON public.team_subscriptions TO authenticated;
 
--- =====================================================
--- DONE! Run this in Supabase SQL Editor
--- =====================================================
+

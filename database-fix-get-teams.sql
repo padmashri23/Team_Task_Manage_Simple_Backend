@@ -1,9 +1,4 @@
--- =====================================================
--- FIX: Update get_my_teams to include subscription fields
--- Run this in Supabase SQL Editor
--- =====================================================
 
--- Drop and recreate the function with subscription fields
 CREATE OR REPLACE FUNCTION public.get_my_teams()
 RETURNS TABLE (
     id TEXT,
