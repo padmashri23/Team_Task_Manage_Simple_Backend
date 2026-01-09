@@ -50,22 +50,13 @@ CREATE INDEX idx_team_members_user ON public.team_members(user_id);
 CREATE INDEX idx_tasks_team ON public.tasks(team_id);
 CREATE INDEX idx_tasks_status ON public.tasks(status);
 
--- =====================================================
--- STEP 3: ENABLE RLS
--- =====================================================
+
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 
--- =====================================================
--- STEP 4: HELPER FUNCTIONS (SECURITY DEFINER)
--- =====================================================
--- These MUST be DEFINER to avoid infinite recursion.
--- They are safe because they only return IDs/booleans.
-
--- Get array of team IDs user belongs to
 CREATE OR REPLACE FUNCTION public.get_my_team_ids()
 RETURNS TEXT[]
 LANGUAGE sql
@@ -106,13 +97,7 @@ AS $$
     );
 $$;
 
--- =====================================================
--- STEP 5: RLS POLICIES
--- =====================================================
 
--- ----- PROFILES -----
--- Allow all authenticated users to see all profiles
--- This is necessary so team admins can find and add users
 CREATE POLICY "profiles_select" ON public.profiles FOR SELECT TO authenticated
     USING (auth.uid() IS NOT NULL);
 
@@ -122,8 +107,7 @@ CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT TO authenticated
 CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE TO authenticated
     USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
--- ----- TEAMS -----
--- Can see teams you're in, or check if any team exists (for joining)
+
 CREATE POLICY "teams_select" ON public.teams FOR SELECT TO authenticated
     USING (id = ANY(public.get_my_team_ids()) OR auth.uid() IS NOT NULL);
 
@@ -136,12 +120,11 @@ CREATE POLICY "teams_update" ON public.teams FOR UPDATE TO authenticated
 CREATE POLICY "teams_delete" ON public.teams FOR DELETE TO authenticated
     USING (public.is_team_admin(id));
 
--- ----- TEAM MEMBERS -----
--- Can see members of teams you belong to
+
 CREATE POLICY "team_members_select" ON public.team_members FOR SELECT TO authenticated
     USING (team_id = ANY(public.get_my_team_ids()));
 
--- Can insert: yourself as member, OR as admin if you created the team
+
 CREATE POLICY "team_members_insert" ON public.team_members FOR INSERT TO authenticated
     WITH CHECK (
         (user_id = auth.uid() AND role = 'member')
@@ -153,7 +136,6 @@ CREATE POLICY "team_members_insert" ON public.team_members FOR INSERT TO authent
         (public.is_team_admin(team_id) AND role = 'member' AND user_id != auth.uid())
     );
 
--- Can delete: yourself, OR others if you're admin (but not yourself)
 CREATE POLICY "team_members_delete" ON public.team_members FOR DELETE TO authenticated
     USING (
         user_id = auth.uid()
@@ -161,7 +143,6 @@ CREATE POLICY "team_members_delete" ON public.team_members FOR DELETE TO authent
         (public.is_team_admin(team_id) AND user_id != auth.uid())
     );
 
--- ----- TASKS -----
 CREATE POLICY "tasks_select" ON public.tasks FOR SELECT TO authenticated
     USING (team_id = ANY(public.get_my_team_ids()));
 
@@ -174,11 +155,7 @@ CREATE POLICY "tasks_update" ON public.tasks FOR UPDATE TO authenticated
 CREATE POLICY "tasks_delete" ON public.tasks FOR DELETE TO authenticated
     USING (team_id = ANY(public.get_my_team_ids()));
 
--- =====================================================
--- STEP 6: TRIGGER FUNCTIONS
--- =====================================================
 
--- Auto-update timestamp
 CREATE OR REPLACE FUNCTION public.update_timestamp()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -197,7 +174,6 @@ CREATE TRIGGER set_teams_timestamp BEFORE UPDATE ON public.teams
 CREATE TRIGGER set_tasks_timestamp BEFORE UPDATE ON public.tasks
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
--- Auto-create profile on signup (MUST be DEFINER)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -218,13 +194,7 @@ $$;
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- =====================================================
--- STEP 7: API FUNCTIONS (SECURITY INVOKER)
--- =====================================================
--- These are the main functions your frontend calls.
--- They use INVOKER so they respect RLS policies.
 
--- Get user's teams with member count
 CREATE OR REPLACE FUNCTION public.get_my_teams()
 RETURNS TABLE (
     id TEXT,
@@ -414,9 +384,6 @@ BEGIN
 END;
 $$;
 
--- =====================================================
--- STEP 8: GRANT PERMISSIONS
--- =====================================================
 
 GRANT USAGE ON SCHEMA public TO authenticated, anon;
 
