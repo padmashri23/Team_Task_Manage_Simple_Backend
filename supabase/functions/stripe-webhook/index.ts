@@ -6,7 +6,7 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
     apiVersion: '2024-06-20',
 })
 
-const webhookSecret = Deno.env.get('WEBHOOK_SIGNING_SECRET')!
+const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -34,38 +34,45 @@ Deno.serve(async (req) => {
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session
 
-        console.log('Payment successful for session:', session.id)
+        console.log('Processing checkout.session.completed:', session.id)
 
         // Extract metadata
         const teamId = session.metadata?.teamId
         const userId = session.metadata?.userId
 
         if (!teamId || !userId) {
-            console.error('Missing metadata in session')
+            console.error('Missing metadata in session:', { teamId, userId })
             return new Response(
                 JSON.stringify({ error: 'Missing metadata' }),
                 { status: 400, headers: { 'Content-Type': 'application/json' } }
             )
         }
 
-        // Create Supabase client with service role
+        // Create Supabase client with service role (bypasses RLS)
         const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Update subscription status to active
-        const { error: updateError } = await supabase
+        // Step 1: Upsert subscription record
+        const { error: subError } = await supabase
             .from('team_subscriptions')
-            .update({
-                status: 'active',
+            .upsert({
+                team_id: teamId,
+                user_id: userId,
+                stripe_session_id: session.id,
                 stripe_payment_intent: session.payment_intent as string,
+                amount_paid: (session.amount_total || 0) / 100, // Convert from cents
+                status: 'active',
                 updated_at: new Date().toISOString(),
+            }, {
+                onConflict: 'team_id,user_id',
             })
-            .eq('stripe_session_id', session.id)
 
-        if (updateError) {
-            console.error('Error updating subscription:', updateError)
+        if (subError) {
+            console.error('Error upserting subscription:', subError)
+        } else {
+            console.log('Subscription record created/updated for team:', teamId)
         }
 
-        // Add user to team
+        // Step 2: Add user to team
         const { error: memberError } = await supabase
             .from('team_members')
             .insert({
@@ -73,16 +80,17 @@ Deno.serve(async (req) => {
                 user_id: userId,
                 role: 'member',
             })
-            .single()
 
         if (memberError) {
-            // If already a member, that's okay
-            if (!memberError.message.includes('duplicate')) {
+            // Duplicate key error means user is already a member - that's OK
+            if (memberError.code === '23505') {
+                console.log('User already a member of team (duplicate key)')
+            } else {
                 console.error('Error adding team member:', memberError)
             }
+        } else {
+            console.log(`User ${userId} successfully added to team ${teamId}`)
         }
-
-        console.log(`User ${userId} added to team ${teamId}`)
     }
 
     return new Response(

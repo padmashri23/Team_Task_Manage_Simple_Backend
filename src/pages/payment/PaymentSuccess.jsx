@@ -19,7 +19,7 @@ const PaymentSuccess = () => {
     const sessionId = searchParams.get('session_id')
 
     useEffect(() => {
-        const processPayment = async () => {
+        const checkPaymentStatus = async () => {
             // Get pending join info from localStorage
             const pendingJoinStr = localStorage.getItem('pendingTeamJoin')
             let pendingJoin = null
@@ -36,7 +36,6 @@ const PaymentSuccess = () => {
             // Use URL team_id or localStorage team_id
             const teamId = urlTeamId || pendingJoin?.teamId
             const userId = user?.id || pendingJoin?.userId
-            const price = pendingJoin?.price || 0
 
             if (!teamId || !userId) {
                 setStatus('error')
@@ -44,77 +43,117 @@ const PaymentSuccess = () => {
                 return
             }
 
-            try {
-                console.log('Processing payment for team:', teamId, 'user:', userId)
+            console.log('Checking payment status for team:', teamId, 'user:', userId)
 
-                // Step 1: Create subscription record
-                const { error: subError } = await supabase
-                    .from('team_subscriptions')
-                    .upsert({
-                        team_id: teamId,
-                        user_id: userId,
-                        stripe_session_id: sessionId || 'manual',
-                        amount_paid: parseFloat(price) || 0,
-                        status: 'active',
-                        updated_at: new Date().toISOString(),
-                    }, {
-                        onConflict: 'team_id,user_id',
-                    })
+            // Poll for webhook completion (check if user is now a team member)
+            let attempts = 0
+            const maxAttempts = 10
+            const pollInterval = 2000 // 2 seconds
 
-                if (subError) {
-                    console.error('Subscription error:', subError)
-                    // Continue anyway - try to join team
-                }
+            const checkMembership = async () => {
+                attempts++
+                console.log(`Checking membership (attempt ${attempts}/${maxAttempts})...`)
 
-                // Step 2: Add user to team
-                const { error: joinError } = await supabase
+                // Check if user is now a member
+                const { data: membership, error } = await supabase
                     .from('team_members')
-                    .insert({
-                        team_id: teamId,
-                        user_id: userId,
-                        role: 'member',
-                    })
+                    .select('id')
+                    .eq('team_id', teamId)
+                    .eq('user_id', userId)
+                    .maybeSingle()
 
-                if (joinError) {
-                    if (joinError.code === '23505' || joinError.message?.includes('duplicate')) {
-                        console.log('Already a team member - that is OK')
-                    } else {
-                        console.error('Join error:', joinError)
-                        // Log the error but show success since payment went through
-                    }
+                if (membership) {
+                    // User is a member - webhook processed successfully!
+                    localStorage.removeItem('pendingTeamJoin')
+                    setStatus('success')
+                    setMessage(`You have successfully joined ${teamName || 'the team'}!`)
+                    dispatch(fetchTeams())
+
+                    // Start countdown for redirect
+                    let count = 5
+                    const timer = setInterval(() => {
+                        count--
+                        setCountdown(count)
+                        if (count <= 0) {
+                            clearInterval(timer)
+                            navigate('/dashboard')
+                        }
+                    }, 1000)
+                    return
                 }
 
-                // Clear pending join from localStorage
-                localStorage.removeItem('pendingTeamJoin')
-
-                // Success!
-                setStatus('success')
-                setMessage(`You have successfully joined ${teamName || 'the team'}!`)
-
-                // Refresh teams list
-                dispatch(fetchTeams())
-
-                // Start countdown for redirect
-                let count = 5
-                const timer = setInterval(() => {
-                    count--
-                    setCountdown(count)
-                    if (count <= 0) {
-                        clearInterval(timer)
-                        navigate('/dashboard')
-                    }
-                }, 1000)
-
-                return () => clearInterval(timer)
-            } catch (error) {
-                console.error('Error processing payment:', error)
-                setStatus('error')
-                setMessage(error.message || 'An error occurred. Please contact support.')
+                if (attempts < maxAttempts) {
+                    // Keep polling
+                    setTimeout(checkMembership, pollInterval)
+                } else {
+                    // Timeout - fallback to direct insert
+                    console.log('Webhook timeout - trying direct insert...')
+                    await fallbackDirectInsert(teamId, userId)
+                }
             }
+
+            // Fallback: Direct insert if webhook times out
+            const fallbackDirectInsert = async (teamId: string, userId: string) => {
+                try {
+                    // Create subscription record
+                    const { error: subError } = await supabase
+                        .from('team_subscriptions')
+                        .upsert({
+                            team_id: teamId,
+                            user_id: userId,
+                            stripe_session_id: sessionId || 'fallback',
+                            amount_paid: pendingJoin?.price || 0,
+                            status: 'active',
+                            updated_at: new Date().toISOString(),
+                        }, {
+                            onConflict: 'team_id,user_id',
+                        })
+
+                    if (subError) {
+                        console.error('Subscription error:', subError)
+                    }
+
+                    // Add user to team
+                    const { error: joinError } = await supabase
+                        .from('team_members')
+                        .insert({
+                            team_id: teamId,
+                            user_id: userId,
+                            role: 'member',
+                        })
+
+                    if (joinError && joinError.code !== '23505') {
+                        throw new Error(joinError.message)
+                    }
+
+                    localStorage.removeItem('pendingTeamJoin')
+                    setStatus('success')
+                    setMessage(`You have successfully joined ${teamName || 'the team'}!`)
+                    dispatch(fetchTeams())
+
+                    // Start countdown
+                    let count = 5
+                    const timer = setInterval(() => {
+                        count--
+                        setCountdown(count)
+                        if (count <= 0) {
+                            clearInterval(timer)
+                            navigate('/dashboard')
+                        }
+                    }, 1000)
+                } catch (error) {
+                    console.error('Fallback error:', error)
+                    setStatus('error')
+                    setMessage(error.message || 'An error occurred. Please contact support.')
+                }
+            }
+
+            // Start checking
+            checkMembership()
         }
 
         if (user) {
-            processPayment()
+            checkPaymentStatus()
         }
     }, [urlTeamId, sessionId, user, dispatch, navigate, teamName])
 
@@ -148,13 +187,20 @@ const PaymentSuccess = () => {
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     {status === 'success' && 'Payment Successful! 🎉'}
                     {status === 'error' && 'Something went wrong'}
-                    {status === 'processing' && 'Processing...'}
+                    {status === 'processing' && 'Confirming Payment...'}
                 </h1>
 
                 {/* Message */}
                 <p className="text-gray-600 mb-6">
                     {message}
                 </p>
+
+                {/* Processing indicator */}
+                {status === 'processing' && (
+                    <p className="text-sm text-gray-500 mb-4">
+                        Waiting for payment confirmation from Stripe...
+                    </p>
+                )}
 
                 {/* Team Name Display */}
                 {teamName && status === 'success' && (
