@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { HiUserGroup, HiSparkles, HiArrowLeft, HiSearch, HiFilter } from 'react-icons/hi'
 import { toast } from 'sonner'
-import { fetchAllTeams, joinTeam, createCheckoutSession, fetchTeams } from '../../store/slices/teamsSlice'
+import { fetchAllTeams, createCheckoutSession, fetchTeams } from '../../store/slices/teamsSlice'
+import { supabase } from '../../lib/supabase'
 
 const DiscoverTeams = () => {
     const navigate = useNavigate()
@@ -53,14 +54,30 @@ const DiscoverTeams = () => {
                     window.location.href = result.url
                 }
             } else {
-                // Free team - join directly
-                await dispatch(joinTeam({ teamId: team.id })).unwrap()
-                toast.success(`Successfully joined ${team.name}!`)
+                // Free team - join directly using Supabase insert
+                const { error } = await supabase
+                    .from('team_members')
+                    .insert({
+                        team_id: team.id,
+                        user_id: user.id,
+                        role: 'member',
+                    })
+
+                if (error) {
+                    if (error.code === '23505') {
+                        toast.info('You are already a member of this team')
+                    } else {
+                        throw new Error(error.message)
+                    }
+                } else {
+                    toast.success(`Successfully joined ${team.name}!`)
+                }
+
                 dispatch(fetchTeams())
                 dispatch(fetchAllTeams())
             }
         } catch (error) {
-            toast.error(error || 'Failed to join team')
+            toast.error(error.message || error || 'Failed to join team')
         } finally {
             setJoiningTeamId(null)
         }
@@ -152,14 +169,14 @@ const DiscoverTeams = () => {
                         <div
                             key={team.id}
                             className={`relative bg-white rounded-2xl shadow-sm border overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 ${team.subscription_type === 'paid'
-                                    ? 'border-purple-200 hover:border-purple-300'
-                                    : 'border-gray-100 hover:border-emerald-200'
+                                ? 'border-purple-200 hover:border-purple-300'
+                                : 'border-gray-100 hover:border-emerald-200'
                                 }`}
                         >
                             {/* Badge */}
                             <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold ${team.subscription_type === 'paid'
-                                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
-                                    : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
+                                ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
+                                : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
                                 }`}>
                                 {team.subscription_type === 'paid' ? (
                                     <span className="flex items-center gap-1">
@@ -174,8 +191,8 @@ const DiscoverTeams = () => {
                             <div className="p-6">
                                 {/* Team Icon */}
                                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 ${team.subscription_type === 'paid'
-                                        ? 'bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-600'
-                                        : 'bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600'
+                                    ? 'bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-600'
+                                    : 'bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600'
                                     }`}>
                                     <HiUserGroup size={28} />
                                 </div>
@@ -214,8 +231,8 @@ const DiscoverTeams = () => {
                                         onClick={() => handleJoinTeam(team)}
                                         disabled={joiningTeamId === team.id || checkoutLoading}
                                         className={`w-full py-2.5 rounded-lg font-medium transition disabled:opacity-50 ${team.subscription_type === 'paid'
-                                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
-                                                : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700'
+                                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
+                                            : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700'
                                             }`}
                                     >
                                         {joiningTeamId === team.id ? (
