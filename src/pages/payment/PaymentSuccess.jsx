@@ -93,7 +93,7 @@ const PaymentSuccess = () => {
             }
 
             // Fallback: Direct insert if webhook times out
-            const fallbackDirectInsert = async (teamId: string, userId: string) => {
+            const fallbackDirectInsert = async (teamId, userId) => {
                 try {
                     // Create subscription record
                     const { error: subError } = await supabase
@@ -159,18 +159,18 @@ const PaymentSuccess = () => {
 
     return (
         <div className={`min-h-screen flex items-center justify-center p-4 ${status === 'success'
-                ? 'bg-gradient-to-br from-emerald-50 to-teal-100'
-                : status === 'error'
-                    ? 'bg-gradient-to-br from-red-50 to-rose-100'
-                    : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+            ? 'bg-gradient-to-br from-emerald-50 to-teal-100'
+            : status === 'error'
+                ? 'bg-gradient-to-br from-red-50 to-rose-100'
+                : 'bg-gradient-to-br from-blue-50 to-indigo-100'
             }`}>
             <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
                 {/* Status Icon */}
                 <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${status === 'success'
-                        ? 'bg-emerald-100'
-                        : status === 'error'
-                            ? 'bg-red-100'
-                            : 'bg-blue-100'
+                    ? 'bg-emerald-100'
+                    : status === 'error'
+                        ? 'bg-red-100'
+                        : 'bg-blue-100'
                     }`}>
                     {status === 'success' && (
                         <HiCheckCircle className="w-12 h-12 text-emerald-500" />
@@ -222,10 +222,10 @@ const PaymentSuccess = () => {
                 <button
                     onClick={() => navigate('/dashboard')}
                     className={`w-full px-6 py-3 rounded-lg font-medium transition ${status === 'success'
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                            : status === 'error'
-                                ? 'bg-gray-600 text-white hover:bg-gray-700'
-                                : 'bg-blue-600 text-white hover:bg-blue-700 cursor-wait'
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : status === 'error'
+                            ? 'bg-gray-600 text-white hover:bg-gray-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700 cursor-wait'
                         }`}
                     disabled={status === 'processing'}
                 >
