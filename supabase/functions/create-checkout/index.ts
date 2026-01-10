@@ -79,15 +79,18 @@ Deno.serve(async (req) => {
 
         console.log('Stripe session created:', session.id)
 
-        // Store pending subscription in database
+        // Store pending subscription in database (upsert to handle retries)
         const { error: insertError } = await supabase
             .from('team_subscriptions')
-            .insert({
+            .upsert({
                 team_id: teamId,
                 user_id: userId,
                 stripe_session_id: session.id,
                 amount_paid: parseFloat(price),
                 status: 'pending',
+                updated_at: new Date().toISOString(),
+            }, {
+                onConflict: 'team_id,user_id',
             })
 
         if (insertError) {
