@@ -5,7 +5,6 @@ import { getSession } from './store/slices/authSlice'
 import { supabase } from './lib/supabase'
 import { setSession } from './store/slices/authSlice'
 
-// Pages
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import Dashboard from './pages/dashboard/Dashboard'
