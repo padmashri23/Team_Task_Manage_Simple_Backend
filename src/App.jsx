@@ -12,7 +12,6 @@ import PaymentSuccess from './pages/payment/PaymentSuccess'
 import PaymentCancel from './pages/payment/PaymentCancel'
 import DiscoverTeams from './pages/discover/DiscoverTeams'
 
-// Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import PublicRoute from './components/auth/PublicRoute'
 
