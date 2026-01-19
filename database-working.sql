@@ -74,7 +74,7 @@ CREATE OR REPLACE FUNCTION public.is_team_member(check_team_id TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
-SECURITY DEFINER  -- Required to break recursion!
+SECURITY DEFINER  
 SET search_path = public
 AS $$
     SELECT EXISTS (
@@ -88,7 +88,7 @@ CREATE OR REPLACE FUNCTION public.is_team_admin(check_team_id TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
-SECURITY DEFINER  -- Required to break recursion!
+SECURITY DEFINER 
 SET search_path = public
 AS $$
     SELECT EXISTS (

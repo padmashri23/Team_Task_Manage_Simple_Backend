@@ -28,6 +28,4 @@ BEGIN
     ORDER BY t.created_at DESC;
 END;
 $$;
-
--- Re-grant execute permission
 GRANT EXECUTE ON FUNCTION public.get_my_teams() TO authenticated;

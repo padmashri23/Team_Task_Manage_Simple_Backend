@@ -5,7 +5,6 @@ import { getSession } from './store/slices/authSlice'
 import { supabase } from './lib/supabase'
 import { setSession } from './store/slices/authSlice'
 
-// Pages
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import Dashboard from './pages/dashboard/Dashboard'
@@ -15,7 +14,6 @@ import OwnerPaymentSuccess from './pages/payment/OwnerPaymentSuccess'
 import DiscoverTeams from './pages/discover/DiscoverTeams'
 import PlansPage from './pages/plans/PlansPage'
 
-// Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import PublicRoute from './components/auth/PublicRoute'
 
@@ -23,10 +21,9 @@ function App() {
   const dispatch = useDispatch()
 
   useEffect(() => {
-    // Get initial session
+  
     dispatch(getSession())
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
