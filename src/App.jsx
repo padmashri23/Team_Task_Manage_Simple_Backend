@@ -19,7 +19,7 @@ function App() {
   const dispatch = useDispatch()
 
   useEffect(() => {
-    // Get initial session
+  
     dispatch(getSession())
 
     // Listen for auth changes
