@@ -46,7 +46,7 @@ export const fetchTeams = createAsyncThunk(
 // Create a new team
 export const createTeam = createAsyncThunk(
   'teams/createTeam',
-  async ({ name, subscriptionType = 'free', subscriptionPrice = 0 }, { rejectWithValue }) => {
+  async ({ name, subscriptionType = 'free', subscriptionTier = 'free', subscriptionPrice = 0, joiningFee = 0 }, { rejectWithValue }) => {
     try {
       // Using the new INVOKER-only function
       const { data: teamId, error } = await supabase.rpc('create_team_and_join', {
@@ -61,7 +61,9 @@ export const createTeam = createAsyncThunk(
           .from('teams')
           .update({
             subscription_type: subscriptionType,
+            subscription_tier: subscriptionTier,
             subscription_price: subscriptionPrice,
+            joining_fee: joiningFee,
           })
           .eq('id', teamId)
 
@@ -246,20 +248,19 @@ export const getTeamInfo = createAsyncThunk(
   }
 )
 
-// Create Stripe checkout session for paid team
+// Create Stripe checkout session for paid team (Member pays joining fee)
 export const createCheckoutSession = createAsyncThunk(
   'teams/createCheckoutSession',
-  async ({ teamId, teamName, price, userEmail }, { rejectWithValue }) => {
+  async ({ teamId, teamName, joiningFee, userEmail }, { rejectWithValue }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
       // Store pending join info in localStorage for PaymentSuccess page
-      // This ensures we can complete the join even if Edge Function fails
       localStorage.setItem('pendingTeamJoin', JSON.stringify({
         teamId,
         teamName,
-        price,
+        joiningFee,
         userId: user.id,
         userEmail: userEmail || user.email,
         timestamp: Date.now(),
@@ -270,9 +271,48 @@ export const createCheckoutSession = createAsyncThunk(
         body: {
           teamId,
           teamName,
-          price,
+          joiningFee,  // Pass the custom joining fee
           userId: user.id,
           userEmail: userEmail || user.email,
+        },
+      })
+
+      if (error) throw error
+      return data
+    } catch (error) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
+// Create Stripe checkout session for team OWNER (pays for tier before team creation)
+export const createOwnerCheckoutSession = createAsyncThunk(
+  'teams/createOwnerCheckoutSession',
+  async ({ teamName, tier, tierPrice, joiningFee }, { rejectWithValue }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      // Store pending team creation info in localStorage for after payment
+      localStorage.setItem('pendingTeamCreation', JSON.stringify({
+        teamName,
+        tier,
+        tierPrice,
+        joiningFee,
+        userId: user.id,
+        userEmail: user.email,
+        timestamp: Date.now(),
+      }))
+
+      // Call Supabase Edge Function to create owner checkout session
+      const { data, error } = await supabase.functions.invoke('create-owner-checkout', {
+        body: {
+          teamName,
+          tier,
+          tierPrice,
+          joiningFee,
+          userId: user.id,
+          userEmail: user.email,
         },
       })
 

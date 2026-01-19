@@ -4,12 +4,14 @@ import { useForm } from 'react-hook-form'
 import { useDispatch, useSelector } from 'react-redux'
 import { HiX, HiCurrencyDollar } from 'react-icons/hi'
 import { toast } from 'sonner'
-import { createTeam } from '../../store/slices/teamsSlice'
+import { createTeam, createOwnerCheckoutSession } from '../../store/slices/teamsSlice'
 
 const CreateTeamModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch()
   const { loading } = useSelector((state) => state.teams)
   const [subscriptionType, setSubscriptionType] = useState('free')
+  const [selectedTier, setSelectedTier] = useState('basic')
+  const [joiningFee, setJoiningFee] = useState(10) // Default joining fee for members
 
   const {
     register,
@@ -20,31 +22,55 @@ const CreateTeamModal = ({ isOpen, onClose }) => {
   } = useForm({
     defaultValues: {
       teamName: '',
-      subscriptionPrice: '',
     },
   })
 
-  const onSubmit = async (data) => {
-    const teamData = {
-      name: data.teamName,
-      subscriptionType,
-      subscriptionPrice: subscriptionType === 'paid' ? parseFloat(data.subscriptionPrice) : 0,
-    }
+  const tierPrices = { basic: 5, pro: 15, enterprise: 49 }
 
-    const result = await dispatch(createTeam(teamData))
-    if (createTeam.fulfilled.match(result)) {
-      toast.success('Team created successfully!')
-      reset()
-      setSubscriptionType('free')
-      onClose()
+  const onSubmit = async (data) => {
+    if (subscriptionType === 'free') {
+      // FREE team - create directly
+      const teamData = {
+        name: data.teamName,
+        subscriptionType: 'free',
+        subscriptionTier: 'free',
+        subscriptionPrice: 0,
+        joiningFee: 0,
+      }
+      const result = await dispatch(createTeam(teamData))
+      if (createTeam.fulfilled.match(result)) {
+        toast.success('Team created successfully!')
+        reset()
+        setSubscriptionType('free')
+        setSelectedTier('basic')
+        setJoiningFee(10)
+        onClose()
+      } else {
+        toast.error(result.payload || 'Failed to create team')
+      }
     } else {
-      toast.error(result.payload || 'Failed to create team')
+      // PAID team - redirect owner to Stripe to pay for tier first
+      const result = await dispatch(createOwnerCheckoutSession({
+        teamName: data.teamName,
+        tier: selectedTier,
+        tierPrice: tierPrices[selectedTier],
+        joiningFee: joiningFee || 10,
+      }))
+
+      if (createOwnerCheckoutSession.fulfilled.match(result) && result.payload?.url) {
+        toast.info('Redirecting to payment...')
+        window.location.href = result.payload.url
+      } else {
+        toast.error(result.payload || 'Failed to create checkout session')
+      }
     }
   }
 
   const handleClose = () => {
     reset()
     setSubscriptionType('free')
+    setSelectedTier('basic')
+    setJoiningFee(10)
     onClose()
   }
 
@@ -124,8 +150,8 @@ const CreateTeamModal = ({ isOpen, onClose }) => {
                         type="button"
                         onClick={() => setSubscriptionType('free')}
                         className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all ${subscriptionType === 'free'
-                            ? 'border-emerald-500 bg-emerald-50'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
                           }`}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${subscriptionType === 'free' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-500'
@@ -144,8 +170,8 @@ const CreateTeamModal = ({ isOpen, onClose }) => {
                         type="button"
                         onClick={() => setSubscriptionType('paid')}
                         className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all ${subscriptionType === 'paid'
-                            ? 'border-violet-500 bg-violet-50'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                          ? 'border-violet-500 bg-violet-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
                           }`}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${subscriptionType === 'paid' ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'
@@ -161,11 +187,64 @@ const CreateTeamModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
 
-                  {/* Price Input (shown only for paid teams) */}
+                  {/* Tier Selection (shown only for paid teams) */}
+                  {subscriptionType === 'paid' && (
+                    <div className="mb-5 animate-fadeIn">
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Team Tier (You Pay)
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Basic Tier */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTier('basic')}
+                          className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${selectedTier === 'basic'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                        >
+                          <span className="text-lg font-bold text-gray-900">$5/mo</span>
+                          <span className="text-xs text-gray-500">Basic</span>
+                          <span className="text-xs text-gray-400">5 members</span>
+                        </button>
+                        {/* Pro Tier */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTier('pro')}
+                          className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${selectedTier === 'pro'
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                        >
+                          <span className="text-lg font-bold text-gray-900">$15/mo</span>
+                          <span className="text-xs text-gray-500">Pro</span>
+                          <span className="text-xs text-gray-400">20 members</span>
+                        </button>
+                        {/* Enterprise Tier */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTier('enterprise')}
+                          className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${selectedTier === 'enterprise'
+                            ? 'border-amber-500 bg-amber-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                        >
+                          <span className="text-lg font-bold text-gray-900">$49/mo</span>
+                          <span className="text-xs text-gray-500">Enterprise</span>
+                          <span className="text-xs text-gray-400">Unlimited</span>
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500 text-center">
+                        You'll pay ${tierPrices[selectedTier]}/mo for team capacity
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Joining Fee (what members pay) */}
                   {subscriptionType === 'paid' && (
                     <div className="mb-5 animate-fadeIn">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Membership Price (USD)
+                        Member Joining Fee (Members Pay)
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -173,26 +252,17 @@ const CreateTeamModal = ({ isOpen, onClose }) => {
                         </div>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0.50"
-                          {...register('subscriptionPrice', {
-                            required: subscriptionType === 'paid' ? 'Price is required for paid teams' : false,
-                            min: {
-                              value: 0.50,
-                              message: 'Minimum price is $0.50',
-                            },
-                          })}
+                          value={joiningFee === 0 ? '' : joiningFee}
+                          onChange={(e) => setJoiningFee(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          onBlur={(e) => setJoiningFee(parseFloat(e.target.value) || 1)}
+                          min="1"
+                          step="1"
                           className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
-                          placeholder="9.99"
+                          placeholder="10"
                         />
                       </div>
-                      {errors.subscriptionPrice && (
-                        <p className="mt-1 text-sm text-red-500">
-                          {errors.subscriptionPrice.message}
-                        </p>
-                      )}
                       <p className="mt-2 text-xs text-gray-500">
-                        Members will pay this one-time fee to join your team
+                        Members will pay ${joiningFee}/mo to join your team
                       </p>
                     </div>
                   )}
@@ -209,8 +279,8 @@ const CreateTeamModal = ({ isOpen, onClose }) => {
                       type="submit"
                       disabled={loading}
                       className={`px-6 py-2.5 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${subscriptionType === 'paid'
-                          ? 'bg-violet-600 hover:bg-violet-700'
-                          : 'bg-gray-900 hover:bg-gray-800'
+                        ? 'bg-violet-600 hover:bg-violet-700'
+                        : 'bg-gray-900 hover:bg-gray-800'
                         }`}
                     >
                       {loading ? 'Creating...' : 'Create Team'}

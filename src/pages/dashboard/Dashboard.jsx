@@ -40,6 +40,12 @@ const Dashboard = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => navigate('/plans')}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition font-medium"
+          >
+            💎 View Plans
+          </button>
+          <button
             onClick={() => navigate('/discover')}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition font-medium"
           >
@@ -70,8 +76,8 @@ const Dashboard = () => {
                   <button
                     onClick={() => setActiveTab('tasks')}
                     className={`flex-1 py-4 text-center font-medium transition ${activeTab === 'tasks'
-                        ? 'text-gray-900 border-b-2 border-gray-900'
-                        : 'text-gray-500 hover:text-gray-700'
+                      ? 'text-gray-900 border-b-2 border-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
                     Tasks
@@ -79,8 +85,8 @@ const Dashboard = () => {
                   <button
                     onClick={() => setActiveTab('members')}
                     className={`flex-1 py-4 text-center font-medium transition ${activeTab === 'members'
-                        ? 'text-gray-900 border-b-2 border-gray-900'
-                        : 'text-gray-500 hover:text-gray-700'
+                      ? 'text-gray-900 border-b-2 border-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
                     Members

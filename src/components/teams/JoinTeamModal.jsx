@@ -58,7 +58,7 @@ const JoinTeamModal = ({ isOpen, onClose }) => {
     const result = await dispatch(createCheckoutSession({
       teamId: teamInfo.id,
       teamName: teamInfo.name,
-      price: teamInfo.subscription_price,
+      joiningFee: teamInfo.joining_fee || 10,  // Use joining fee, not subscription_price
       userEmail: user?.email,
     }))
 
@@ -210,7 +210,7 @@ const JoinTeamModal = ({ isOpen, onClose }) => {
                           <div>
                             <p className="text-sm text-violet-600 font-medium">Membership Fee</p>
                             <p className="text-3xl font-bold text-violet-900">
-                              ${parseFloat(teamInfo.subscription_price).toFixed(2)}
+                              ${parseFloat(teamInfo.joining_fee || 10).toFixed(2)}
                             </p>
                             <p className="text-xs text-violet-500 mt-1">One-time payment</p>
                           </div>
@@ -255,7 +255,7 @@ const JoinTeamModal = ({ isOpen, onClose }) => {
                           ) : (
                             <>
                               <HiCurrencyDollar className="w-5 h-5" />
-                              Pay ${parseFloat(teamInfo.subscription_price).toFixed(2)} to Join
+                              Pay ${parseFloat(teamInfo.joining_fee || 10).toFixed(2)} to Join
                             </>
                           )}
                         </button>

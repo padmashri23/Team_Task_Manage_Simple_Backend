@@ -42,11 +42,11 @@ const DiscoverTeams = () => {
 
         try {
             if (team.subscription_type === 'paid') {
-                // Paid team - initiate Stripe checkout
+                // Paid team - initiate Stripe checkout with joining fee
                 const result = await dispatch(createCheckoutSession({
                     teamId: team.id,
                     teamName: team.name,
-                    price: team.subscription_price,
+                    joiningFee: team.joining_fee || 10,  // Use team's joining fee
                     userEmail: user?.email,
                 })).unwrap()
 
@@ -213,7 +213,7 @@ const DiscoverTeams = () => {
                                     </span>
                                     {team.subscription_type === 'paid' && (
                                         <span className="font-semibold text-purple-600">
-                                            ${team.subscription_price}
+                                            ${team.joining_fee || 10}/mo
                                         </span>
                                     )}
                                 </div>
@@ -241,7 +241,7 @@ const DiscoverTeams = () => {
                                                 {team.subscription_type === 'paid' ? 'Redirecting...' : 'Joining...'}
                                             </span>
                                         ) : team.subscription_type === 'paid' ? (
-                                            `Join for $${team.subscription_price}`
+                                            `Join for $${team.joining_fee || 10}/mo`
                                         ) : (
                                             'Join Team'
                                         )}

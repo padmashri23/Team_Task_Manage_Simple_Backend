@@ -35,8 +35,20 @@ Deno.serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session
 
         console.log('Processing checkout.session.completed:', session.id)
+        console.log('Session metadata:', session.metadata)
 
-        // Extract metadata
+        // Check if this is an owner checkout (no teamId, has teamName)
+        const checkoutType = session.metadata?.type
+        if (checkoutType === 'owner_checkout') {
+            // Owner checkout - team will be created by frontend after payment success
+            console.log('Owner checkout detected - team will be created by frontend')
+            return new Response(
+                JSON.stringify({ received: true, type: 'owner_checkout' }),
+                { status: 200, headers: { 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // Member checkout - requires teamId and userId
         const teamId = session.metadata?.teamId
         const userId = session.metadata?.userId
 
@@ -48,19 +60,40 @@ Deno.serve(async (req) => {
             )
         }
 
+        // For subscription mode, extract subscription and customer IDs
+        const subscriptionId = session.subscription as string
+        const customerId = session.customer as string
+
+        // Fetch subscription to get current period end (for expires_at)
+        let expiresAt: Date | null = null
+        let amountPaid = (session.amount_total || 0) / 100
+
+        if (subscriptionId) {
+            try {
+                const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+                expiresAt = new Date(subscription.current_period_end * 1000)
+                console.log('Subscription fetched, expires at:', expiresAt)
+            } catch (subError) {
+                console.error('Error fetching subscription:', subError)
+            }
+        }
+
         // Create Supabase client with service role (bypasses RLS)
         const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Step 1: Upsert subscription record
+        // Step 1: Upsert subscription record with all subscription data
         const { error: subError } = await supabase
             .from('team_subscriptions')
             .upsert({
                 team_id: teamId,
                 user_id: userId,
                 stripe_session_id: session.id,
-                stripe_payment_intent: session.payment_intent as string,
-                amount_paid: (session.amount_total || 0) / 100, // Convert from cents
+                stripe_payment_intent: session.payment_intent as string || null,
+                stripe_subscription_id: subscriptionId || null,
+                stripe_customer_id: customerId || null,
+                amount_paid: amountPaid,
                 status: 'active',
+                expires_at: expiresAt ? expiresAt.toISOString() : null,
                 updated_at: new Date().toISOString(),
             }, {
                 onConflict: 'team_id,user_id',
@@ -69,7 +102,7 @@ Deno.serve(async (req) => {
         if (subError) {
             console.error('Error upserting subscription:', subError)
         } else {
-            console.log('Subscription record created/updated for team:', teamId)
+            console.log('Subscription record created/updated for team:', teamId, 'with subscription:', subscriptionId)
         }
 
         // Step 2: Add user to team

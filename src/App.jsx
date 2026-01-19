@@ -11,7 +11,9 @@ import Register from './pages/auth/Register'
 import Dashboard from './pages/dashboard/Dashboard'
 import PaymentSuccess from './pages/payment/PaymentSuccess'
 import PaymentCancel from './pages/payment/PaymentCancel'
+import OwnerPaymentSuccess from './pages/payment/OwnerPaymentSuccess'
 import DiscoverTeams from './pages/discover/DiscoverTeams'
+import PlansPage from './pages/plans/PlansPage'
 
 // Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -79,6 +81,14 @@ function App() {
         }
       />
       <Route
+        path="/payment/owner-success"
+        element={
+          <ProtectedRoute>
+            <OwnerPaymentSuccess />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/payment/cancel"
         element={
           <ProtectedRoute>
@@ -96,6 +106,9 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* Plans Page */}
+      <Route path="/plans" element={<PlansPage />} />
 
       {/* Default redirect */}
       <Route path="*" element={<Navigate to="/login" replace />} />

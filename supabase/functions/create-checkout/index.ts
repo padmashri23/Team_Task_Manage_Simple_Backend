@@ -1,5 +1,5 @@
 // Supabase Edge Function for Stripe Checkout
-// Deploy via Supabase Dashboard -> Edge Functions
+// Handles member joining fee payments
 
 import Stripe from 'https://esm.sh/stripe@14.21.0'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.0'
@@ -35,15 +35,15 @@ Deno.serve(async (req) => {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Parse request body
-        const { teamId, teamName, price, userId, userEmail } = await req.json()
+        // Parse request body - accepts joiningFee (custom amount set by team owner)
+        const { teamId, teamName, joiningFee, userId, userEmail } = await req.json()
 
-        console.log('Received request:', { teamId, teamName, price, userId, userEmail })
+        console.log('Received request:', { teamId, teamName, joiningFee, userId, userEmail })
 
         // Validate required fields
-        if (!teamId || !price || !userId) {
+        if (!teamId || !userId) {
             return new Response(
-                JSON.stringify({ error: 'Missing required fields: teamId, price, userId' }),
+                JSON.stringify({ error: 'Missing required fields: teamId, userId' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
@@ -51,7 +51,13 @@ Deno.serve(async (req) => {
         // Get origin for redirect URLs
         const origin = req.headers.get('origin') || 'http://localhost:3000'
 
-        // Create Stripe Checkout Session
+        // Use the joining fee passed from frontend (set by team owner)
+        const amount = parseFloat(joiningFee) || 10
+        const amountInCents = Math.round(amount * 100)
+
+        console.log('Creating checkout for joining fee:', amount, 'cents:', amountInCents)
+
+        // Create Stripe Checkout Session with dynamic price
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: [
@@ -59,34 +65,44 @@ Deno.serve(async (req) => {
                     price_data: {
                         currency: 'usd',
                         product_data: {
-                            name: `Join Team: ${teamName || 'Team'}`,
-                            description: `One-time membership fee to join the team`,
+                            name: `Join: ${teamName || 'Team'}`,
+                            description: `Monthly membership fee to join ${teamName}`,
                         },
-                        unit_amount: Math.round(parseFloat(price) * 100),
+                        unit_amount: amountInCents,
+                        recurring: {
+                            interval: 'month',
+                        },
                     },
                     quantity: 1,
                 },
             ],
-            mode: 'payment',
+            mode: 'subscription',
             success_url: `${origin}/Team_Task_Manage_Simple_Backend/#/payment/success?session_id={CHECKOUT_SESSION_ID}&team_id=${teamId}`,
             cancel_url: `${origin}/Team_Task_Manage_Simple_Backend/#/payment/cancel?team_id=${teamId}`,
             customer_email: userEmail || undefined,
             metadata: {
                 teamId,
                 userId,
+                joiningFee: amount.toString(),
+            },
+            subscription_data: {
+                metadata: {
+                    teamId,
+                    userId,
+                },
             },
         })
 
         console.log('Stripe session created:', session.id)
 
-        // Store pending subscription in database (upsert to handle retries)
+        // Store pending subscription in database
         const { error: insertError } = await supabase
             .from('team_subscriptions')
             .upsert({
                 team_id: teamId,
                 user_id: userId,
                 stripe_session_id: session.id,
-                amount_paid: parseFloat(price),
+                amount_paid: amount,
                 status: 'pending',
                 updated_at: new Date().toISOString(),
             }, {
