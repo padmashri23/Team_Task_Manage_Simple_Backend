@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
                 },
             ],
             mode: 'subscription',
+            // Promo codes only for members, not team owners
             success_url: `${origin}/Team_Task_Manage_Simple_Backend/#/payment/owner-success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${origin}/Team_Task_Manage_Simple_Backend/#/dashboard`,
             customer_email: userEmail || undefined,
@@ -72,6 +73,7 @@ Deno.serve(async (req) => {
                 type: 'owner_checkout',
             },
             subscription_data: {
+                trial_period_days: 2,  // 2-day free trial for team owners
                 metadata: {
                     teamName,
                     tier,

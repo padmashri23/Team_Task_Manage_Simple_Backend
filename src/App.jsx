@@ -13,6 +13,7 @@ import PaymentCancel from './pages/payment/PaymentCancel'
 import OwnerPaymentSuccess from './pages/payment/OwnerPaymentSuccess'
 import DiscoverTeams from './pages/discover/DiscoverTeams'
 import PlansPage from './pages/plans/PlansPage'
+import ManageSubscription from './pages/subscription/ManageSubscription'
 
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import PublicRoute from './components/auth/PublicRoute'
@@ -21,7 +22,7 @@ function App() {
   const dispatch = useDispatch()
 
   useEffect(() => {
-  
+
     dispatch(getSession())
 
     const {
@@ -106,6 +107,16 @@ function App() {
 
       {/* Plans Page */}
       <Route path="/plans" element={<PlansPage />} />
+
+      {/* Manage Subscriptions */}
+      <Route
+        path="/manage-subscription"
+        element={
+          <ProtectedRoute>
+            <ManageSubscription />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Default redirect */}
       <Route path="*" element={<Navigate to="/login" replace />} />

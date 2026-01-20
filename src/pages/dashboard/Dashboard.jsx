@@ -52,6 +52,12 @@ const Dashboard = () => {
             🔍 Discover Teams
           </button>
           <button
+            onClick={() => navigate('/manage-subscription')}
+            className="flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 rounded-lg hover:bg-white transition font-medium"
+          >
+            ⚙️ My Subscriptions
+          </button>
+          <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-white/50 rounded-lg transition"
           >

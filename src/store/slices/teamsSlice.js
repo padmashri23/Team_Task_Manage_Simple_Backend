@@ -338,15 +338,73 @@ export const fetchAllTeams = createAsyncThunk(
   }
 )
 
+// Fetch user's subscriptions
+export const fetchMySubscriptions = createAsyncThunk(
+  'teams/fetchMySubscriptions',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data, error } = await supabase
+        .from('team_subscriptions')
+        .select(`
+          *,
+          teams:team_id (name)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Flatten team name
+      const subscriptions = (data || []).map(sub => ({
+        ...sub,
+        team_name: sub.teams?.name || 'Unknown Team',
+      }))
+
+      return subscriptions
+    } catch (error) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
+// Cancel subscription
+export const cancelSubscription = createAsyncThunk(
+  'teams/cancelSubscription',
+  async ({ subscriptionId, teamId }, { rejectWithValue }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+        body: {
+          subscriptionId,
+          teamId,
+          userId: user.id,
+        },
+      })
+
+      if (error) throw error
+      return data
+    } catch (error) {
+      return rejectWithValue(error.message)
+    }
+  }
+)
+
 const initialState = {
   teams: [],
   allTeams: [], // All teams for discover page
   selectedTeam: null,
   availableUsers: [],
   teamInfo: null,
+  mySubscriptions: [], // User's subscriptions
   loading: false,
   checkoutLoading: false,
   discoverLoading: false,
+  subscriptionsLoading: false,
   error: null,
 }
 
@@ -504,6 +562,31 @@ const teamsSlice = createSlice({
       })
       .addCase(fetchAllTeams.rejected, (state, action) => {
         state.discoverLoading = false
+        state.error = action.payload
+      })
+      // Fetch My Subscriptions
+      .addCase(fetchMySubscriptions.pending, (state) => {
+        state.subscriptionsLoading = true
+        state.error = null
+      })
+      .addCase(fetchMySubscriptions.fulfilled, (state, action) => {
+        state.subscriptionsLoading = false
+        state.mySubscriptions = action.payload
+      })
+      .addCase(fetchMySubscriptions.rejected, (state, action) => {
+        state.subscriptionsLoading = false
+        state.error = action.payload
+      })
+      // Cancel Subscription
+      .addCase(cancelSubscription.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(cancelSubscription.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(cancelSubscription.rejected, (state, action) => {
+        state.loading = false
         state.error = action.payload
       })
   },

@@ -102,6 +102,12 @@ const PlansPage = () => {
                                     <span className="text-white/60">/month</span>
                                 </div>
                                 <p className="text-xs text-white/50 mt-2">Owner pays this for team capacity</p>
+                                {/* Trial Badge */}
+                                <div className="mt-3">
+                                    <span className="inline-block bg-green-500/20 text-green-400 text-xs font-medium px-3 py-1 rounded-full">
+                                        🎁 2-day free trial
+                                    </span>
+                                </div>
                             </div>
 
                             {/* Features */}
@@ -120,8 +126,8 @@ const PlansPage = () => {
                             <button
                                 onClick={() => navigate('/dashboard')}
                                 className={`w-full py-3 rounded-xl font-semibold transition ${plan.popular
-                                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90'
-                                        : 'bg-white/20 text-white hover:bg-white/30'
+                                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90'
+                                    : 'bg-white/20 text-white hover:bg-white/30'
                                     }`}
                             >
                                 Get Started

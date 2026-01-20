@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
                 },
             ],
             mode: 'subscription',
+            allow_promotion_codes: true,  // Enable promo code input at checkout
             success_url: `${origin}/Team_Task_Manage_Simple_Backend/#/payment/success?session_id={CHECKOUT_SESSION_ID}&team_id=${teamId}`,
             cancel_url: `${origin}/Team_Task_Manage_Simple_Backend/#/payment/cancel?team_id=${teamId}`,
             customer_email: userEmail || undefined,

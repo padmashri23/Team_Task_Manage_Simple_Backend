@@ -125,6 +125,48 @@ Deno.serve(async (req) => {
         }
     }
 
+    // Handle subscription cancellation
+    if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object as Stripe.Subscription
+
+        console.log('Processing customer.subscription.deleted:', subscription.id)
+        console.log('Subscription metadata:', subscription.metadata)
+
+        const teamId = subscription.metadata?.teamId
+        const userId = subscription.metadata?.userId
+
+        if (teamId && userId) {
+            const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+            // Update subscription status
+            const { error: updateError } = await supabase
+                .from('team_subscriptions')
+                .update({
+                    status: 'cancelled',
+                    cancelled_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('stripe_subscription_id', subscription.id)
+
+            if (updateError) {
+                console.error('Error updating subscription status:', updateError)
+            }
+
+            // Remove user from team
+            const { error: removeError } = await supabase
+                .from('team_members')
+                .delete()
+                .eq('team_id', teamId)
+                .eq('user_id', userId)
+
+            if (removeError) {
+                console.error('Error removing user from team:', removeError)
+            } else {
+                console.log(`User ${userId} removed from team ${teamId} due to subscription cancellation`)
+            }
+        }
+    }
+
     return new Response(
         JSON.stringify({ received: true }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
