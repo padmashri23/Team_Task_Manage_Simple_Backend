@@ -82,7 +82,6 @@ const DiscoverTeams = () => {
             setJoiningTeamId(null)
         }
     }
-
     const freeTeams = allTeams.filter(t => t.subscription_type !== 'paid')
     const paidTeams = allTeams.filter(t => t.subscription_type === 'paid')
 
