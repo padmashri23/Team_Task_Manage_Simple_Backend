@@ -5,7 +5,6 @@ import { HiUserGroup, HiSparkles, HiArrowLeft, HiSearch, HiFilter } from 'react-
 import { toast } from 'sonner'
 import { fetchAllTeams, createCheckoutSession, fetchTeams } from '../../store/slices/teamsSlice'
 import { supabase } from '../../lib/supabase'
-
 const DiscoverTeams = () => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
@@ -14,17 +13,12 @@ const DiscoverTeams = () => {
     const [filter, setFilter] = useState('all') // 'all', 'free', 'paid'
     const [searchTerm, setSearchTerm] = useState('')
     const [joiningTeamId, setJoiningTeamId] = useState(null)
-
     useEffect(() => {
         dispatch(fetchAllTeams())
     }, [dispatch])
-
     const filteredTeams = allTeams.filter((team) => {
-        // Apply filter
         if (filter === 'free' && team.subscription_type === 'paid') return false
         if (filter === 'paid' && team.subscription_type !== 'paid') return false
-
-        // Apply search
         if (searchTerm && !team.name.toLowerCase().includes(searchTerm.toLowerCase())) {
             return false
         }
