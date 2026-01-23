@@ -161,7 +161,6 @@ const DiscoverTeams = () => {
                         <p className="text-gray-500">Try adjusting your search or filter</p>
                     </div>
                 )}
-
                 {/* Teams Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredTeams.map((team) => (
