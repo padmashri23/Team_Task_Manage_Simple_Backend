@@ -253,5 +253,4 @@ const DiscoverTeams = () => {
         </div>
     )
 }
-
 export default DiscoverTeams
